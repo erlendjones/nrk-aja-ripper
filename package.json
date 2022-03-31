@@ -1,0 +1,10 @@
+{
+  "name": "AJA-RIPPER",
+  "version": "1.0.0",
+  "main": "app.js",
+  "license": "MIT",
+  "scripts":{
+    "start": "DEBUG=AJA-Ripper node app"
+  },
+    "type": "module"
+}
