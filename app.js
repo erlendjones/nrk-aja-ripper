@@ -5,6 +5,7 @@ import debug from 'debug';
 const Debug = debug('AJA-Ripper');
 
 const ip = '192.168.20.5';
+const __dirname = process.cwd() + '/media';
 
 const initScheduler = function(check){
 	Debug('App Inited')
@@ -12,27 +13,34 @@ const initScheduler = function(check){
 }
 
 const downloadList = [];
+let downloadMode = false;
 let isDownloading = false;
 
 const runDownload = async () => {
-	if (!isDownloading && downloadList.length){
+	if (!isDownloading && downloadList.length > 0){
 		isDownloading = true;
 		const clipname = downloadList[0];
+		Debug('Downloading "'+clipname+'"...')
 
-		await setDownloadMode();
+		if (!downloadMode){
+			await setDownloadMode();
+		}
 
 		download('http://'+ip+'/media/'+clipname, __dirname+'/'+clipname, async (err)=>{
 			downloadList.shift();
 			isDownloading = false;
-
-			await resetDownloadMode();
 
 			if (err){
 				Debug('error downloading', clipname);
 				return;
 			}
 
-			Debug('file downloaded', clipname);
+			Debug('Complete!');
+
+			if (downloadList.length === 0){
+				await resetDownloadMode();
+			}
+
 			runDownload();
 		});
 	}
@@ -41,7 +49,7 @@ const runDownload = async () => {
 
 let isChecking = false;
 const checkList = function(){
-	if (isChecking) return;
+	if (isChecking || isDownloading) return;
 
 	Debug('checking AJA file-list');
 	isChecking = true;
@@ -54,16 +62,15 @@ const checkList = function(){
 
 		// check for existing files
 		clipnames.forEach(async clipname => {
-				await fileExist(clipname, (downloadFilename)=>{
-					newClipnames.push(downloadFilename);
+				await fileExist(clipname, ()=>{
+					newClipnames.push(clipname);
 				})
 		});
 
 		// if new files, download them
 		if (newClipnames.length){
 			Debug(''+clipnames.length+' files in total, '+newClipnames.length+' is new.');
-			Debug('download', downloadFilename);
-			downloadList.concat(newClipnames);
+			newClipnames.forEach(item=>downloadList.push(item))
 			runDownload();
 		}else{
 			Debug(''+clipnames.length+' files, but no new ones.');
@@ -103,11 +110,15 @@ const download = function(url, dest, cb) {
 };
 
 const setDownloadMode = async () => {
-	return axios.get('http://'+ip+'/config?action=set&paramid=eParamID_MediaState&value=1')
+	Debug('set download mode:on')
+	downloadMode = true;
+	return axios.get('http://'+ip+'/config?action=set&paramid=eParamID_MediaState&value=1');
 }
 
 const resetDownloadMode = async () => {
-	await axios.get('http://'+ip+'/config?action=set&paramid=eParamID_MediaState&value=0')
+	Debug('set download mode:off')
+	downloadMode = false;
+	return axios.get('http://'+ip+'/config?action=set&paramid=eParamID_MediaState&value=0')
 }
 
 
